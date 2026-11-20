@@ -1,44 +1,42 @@
-// 生成 PWA 图标（真实 PNG）。用法：node tools/gen-icons.js
-// 依赖 Playwright 自带的 Chromium，把一段 SVG 截图成 PNG。
+// 生成 PWA 桌面图标（真实 PNG）。用法：node tools/gen-icons.js
+// 图标直接取自 index.html 里的小包子吉祥物 SVG，改了吉祥物后重新运行即可。
 const { chromium } = require('playwright');
+const fs = require('fs');
 const path = require('path');
 
-const COLORS = ['#ffd6a5', '#fdffb6', '#caffbf', '#9bf6ff', '#bdb2ff', '#ffc6ff'];
+const root = path.join(__dirname, '..');
+const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const m = html.match(/<div id="mascot"[^>]*>\s*(<svg[\s\S]*?<\/svg>)/);
+if (!m) throw new Error('index.html 里没找到吉祥物 SVG');
+// 图标用开心的表情
+const mascot = m[1]
+  .replace(/<g class="face face-(idle|spin)"[\s\S]*?<\/g>\s*/g, '')
+  .replace('class="face face-happy"', '');
 
-function wheelSvg(size, scale) {
-  // scale：转盘占画布的比例（maskable 图标需要留足安全区）
-  const c = size / 2;
-  const r = (size / 2) * scale;
-  let slices = '';
-  for (let i = 0; i < 6; i++) {
-    const a0 = (i * 60) * Math.PI / 180, a1 = ((i + 1) * 60) * Math.PI / 180;
-    const x0 = c + r * Math.sin(a0), y0 = c - r * Math.cos(a0);
-    const x1 = c + r * Math.sin(a1), y1 = c - r * Math.cos(a1);
-    slices += `<path d="M${c} ${c} L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z" fill="${COLORS[i]}" stroke="#fff" stroke-width="${size * 0.008}"/>`;
-  }
-  const ring = r * 1.08;
-  const pw = r * 0.22, ph = r * 0.36;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-    <rect width="${size}" height="${size}" fill="#ff7a45"/>
-    <circle cx="${c}" cy="${c}" r="${ring}" fill="#ffb46b" stroke="#fff" stroke-width="${size * 0.012}"/>
-    ${slices}
-    <circle cx="${c}" cy="${c}" r="${r * 0.2}" fill="#fff" stroke="#ffb46b" stroke-width="${size * 0.015}"/>
-    <path d="M${c - pw} ${c - ring - ph * 0.15} L${c + pw} ${c - ring - ph * 0.15} L${c} ${c - ring + ph * 0.85} Z" fill="#e8402b" stroke="#fff" stroke-width="${size * 0.008}"/>
-  </svg>`;
+function iconHtml(size, scale) {
+  // scale：吉祥物占画布的比例（maskable 图标四周要留安全区）
+  const s = size * scale;
+  return `<html><body style="margin:0">
+    <div id="icon" style="width:${size}px;height:${size}px;position:relative;
+      background: radial-gradient(circle at 50% 42%, #fff6e6 0, #ffe2bf 55%, #ffcf9c 100%);">
+      <div style="position:absolute;width:${s}px;height:${s}px;left:${(size - s) / 2}px;top:${(size - s) / 2 + size * 0.02}px">
+        ${mascot.replace('<svg', '<svg width="100%" height="100%"')}
+      </div>
+    </div></body></html>`;
 }
 
 (async () => {
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const jobs = [
-    ['icon-192.png', 192, 0.62],
-    ['icon-512.png', 512, 0.62],
-    ['icon-maskable-512.png', 512, 0.5],
+    ['icon-192.png', 192, 0.86],
+    ['icon-512.png', 512, 0.86],
+    ['icon-maskable-512.png', 512, 0.68],
   ];
   for (const [name, size, scale] of jobs) {
     await page.setViewportSize({ width: size, height: size });
-    await page.setContent(`<html><body style="margin:0">${wheelSvg(size, scale)}</body></html>`);
-    await page.locator('svg').screenshot({ path: path.join(__dirname, '..', 'icons', name), omitBackground: false });
+    await page.setContent(iconHtml(size, scale));
+    await page.locator('#icon').screenshot({ path: path.join(root, 'icons', name) });
     console.log('生成', name);
   }
   await browser.close();

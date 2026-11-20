@@ -9,11 +9,9 @@ const check = (ok, msg) => { console.log((ok ? '  ✓ ' : '  ✗ ') + msg); if (
 // 读取"指针尖正下方"实际渲染的是哪块扇区（真实画面，不是算法自己算的数）
 async function sliceUnderPointer(page) {
   return page.evaluate(() => {
-    const wheel = document.getElementById('wheel').getBoundingClientRect();
-    const tip = document.querySelector('.pointer').getBoundingClientRect().bottom;
-    const x = wheel.left + wheel.width / 2;
-    const y = tip + 6; // 指针尖正下方 6px
-    const el = document.elementFromPoint(x, y);
+    // 勺子尖端的实际屏幕位置（勺子和吉祥物不拦截点击，所以能取到下面的扇区）
+    const tip = document.getElementById('pointer-tip').getBoundingClientRect();
+    const el = document.elementFromPoint(tip.left + tip.width / 2, tip.top + tip.height / 2);
     return el && el.dataset ? Number(el.dataset.index) : -1;
   });
 }
@@ -99,19 +97,21 @@ async function spinOnce(page) {
   for (const vp of [{ width: 360, height: 640 }, { width: 360, height: 740 }, { width: 412, height: 915 }]) {
     const ctx = await browser.newContext({ ...devices['Pixel 7'], viewport: vp });
     const page = await ctx.newPage();
-    await page.goto(BASE);
-    const r = await page.evaluate(() => {
+    await page.goto(BASE + '?spinms=60');
+    // 转几次，让指针停在不同角度后再检查（旋转图层不能把页面撑宽）
+    for (let i = 0; i < 3; i++) await spinOnce(page);
+    const r = await page.evaluate((VPW) => {
       const box = s => document.querySelector(s).getBoundingClientRect();
       const inView = b => b.top >= 0 && b.left >= 0 && b.bottom <= innerHeight && b.right <= innerWidth;
       return {
-        title: inView(box('.bubble')) && inView(box('.tabs')) && inView(box('.toolbar')), wheel: inView(box('.wheel-area')),
+        title: inView(box('.title')) && inView(box('.tabs')) && inView(box('.toolbar')) && inView(box('#btn-edit')), wheel: inView(box('.wheel-area')),
         result: inView(box('#result')), button: inView(box('#spin')),
-        noScroll: document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth,
+        noScroll: document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth && innerWidth === VPW,
         wheelSize: Math.round(box('.wheel-area').width),
       };
-    });
+    }, vp.width);
     check(r.title && r.wheel && r.result && r.button && r.noScroll,
-      `${vp.width}×${vp.height}：顶部栏/吉祥物/分类/转盘/结果/按钮均在屏内，无滚动（转盘直径 ${r.wheelSize}px）`);
+      `${vp.width}×${vp.height}：标题/工具栏/分类/转盘/结果/按钮均在屏内，无滚动（转盘直径 ${r.wheelSize}px）`);
     if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/shot-${vp.width}x${vp.height}.png` });
     await ctx.close();
   }
@@ -145,12 +145,14 @@ async function spinOnce(page) {
     await page.goto(BASE + '?spinms=60');
     const S = () => page.evaluate(() => window.__wheel.getState());
 
-    // 指针尖确实伸进了转盘
+    // 勺子尖端落在转盘扇区上（在吉祥物外、转盘边缘内）
     const tipInside = await page.evaluate(() => {
       const w = document.getElementById('wheel').getBoundingClientRect();
-      return document.querySelector('.pointer').getBoundingClientRect().bottom > w.top + 2;
+      const t = document.getElementById('pointer-tip').getBoundingClientRect();
+      const d = Math.hypot(t.left - (w.left + w.width / 2), t.top - (w.top + w.height / 2)) / (w.width / 2);
+      return d > 0.5 && d < 0.95;
     });
-    check(tipInside, '指针尖伸入转盘内');
+    check(tipInside, '勺子尖端落在转盘扇区上');
 
     // 分类切换
     await page.click('.tab[data-cat="night"]');
@@ -235,7 +237,7 @@ async function spinOnce(page) {
     await page.click('#btn-sound');
     await spinOnce(page);
     await page.reload();
-    check((await page.textContent('#btn-sound')) === '🔊', '音效开关可开启并在刷新后保留');
+    check((await page.getAttribute('#btn-sound', 'aria-pressed')) === 'true', '音效开关可开启并在刷新后保留');
 
     // 本地数据损坏时能自动恢复
     await page.evaluate(() => localStorage.setItem('what-to-eat:v1', '{坏数据'));

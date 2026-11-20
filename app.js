@@ -4,8 +4,8 @@
  *   - 12 点钟方向为 0°，角度沿顺时针增加。
  *   - 扇区 i（0 ~ N-1）占据 [i * slice, (i + 1) * slice)，slice = 360 / N。
  *   - 极坐标转 SVG 坐标：x = cx + r·sinθ，y = cy − r·cosθ（SVG 的 y 轴向下）。
- *   - 转盘用 CSS rotate(R) 顺时针转动 R 度；指针固定在 0°。
- *     此时指针对着的是转盘自身坐标中的角度 (360 − R mod 360) mod 360。
+ *   - 转盘固定不动；勺子指针初始指向 0°，用 CSS rotate(P) 顺时针转动 P 度。
+ *     此时指针指向转盘上的角度 P mod 360。
  */
 (function () {
   'use strict';
@@ -18,15 +18,15 @@
     { id: 'night', name: '宵夜',   defaults: ['拉面', '烤串', '炸鸡', '麻辣烫', '关东煮', '炒饭'] },
     { id: 'tea',   name: '下午茶', defaults: ['奶茶', '蛋糕', '咖啡', '甜甜圈', '布丁', '水果'] }
   ];
-  // 低饱和暖色系，相邻颜色区分明显
-  var COLORS = ['#f9d9a8', '#cfe8c4', '#f6c9c4', '#c6e1ea', '#f7e6a6', '#dccfee',
-                '#fbd2b4', '#d4e7b0', '#f3cfe0', '#bfdcd0', '#f2dcc0', '#cbd6f0'];
+  // 奶油色双色交替；项数为奇数时最后一格用第三色，避免首尾同色相邻
+  var TONES = ['#fde3c3', '#fff2df', '#fbeacb'];
+  var WIN_COLOR = '#ffc690';
+  function sliceColor(i, n) { return (n % 2 === 1 && i === n - 1) ? TONES[2] : TONES[i % 2]; }
   var MIN_ITEMS = 2, MAX_ITEMS = 12, MAX_LEN = 8;
   var HISTORY_SIZE = 5;
   var FULL_TURNS = 5;
   var EASING = 'cubic-bezier(0.15, 0.85, 0.25, 1)';
   var STORAGE_KEY = 'what-to-eat:v1';
-  var HAPPY_LINES = ['就决定是你了！', '好耶，开饭！', '听转盘的准没错', '这个好吃！'];
 
   var params = new URLSearchParams(location.search);
   var DEBUG = params.get('debug') === '1';
@@ -40,9 +40,9 @@
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
   var $ = function (id) { return document.getElementById(id); };
-  var wheelEl = $('wheel'), frameEl = $('frame'), areaEl = document.querySelector('.wheel-area');
+  var wheelEl = $('wheel'), pointerEl = $('pointer');
   var spinBtn = $('spin'), resultEl = $('result'), debugEl = $('debug'), installBtn = $('install');
-  var tabsEl = $('tabs'), bubbleEl = $('bubble'), mascotEl = $('mascot'), faceEl = $('mascot-face');
+  var tabsEl = $('tabs'), mascotEl = $('mascot');
   var soundBtn = $('btn-sound'), editBtn = $('btn-edit'), historyBtn = $('btn-history');
 
   /* ---------- 状态与本地存储 ---------- */
@@ -94,24 +94,24 @@
 
   /* ---------- 纯函数：角度算法 ---------- */
 
-  function polar(angleDeg, radius, cx, cy) {
+  function polar(angleDeg, radius) {
     var a = angleDeg * Math.PI / 180;
-    return { x: (cx == null ? CX : cx) + radius * Math.sin(a), y: (cy == null ? CY : cy) - radius * Math.cos(a) };
+    return { x: CX + radius * Math.sin(a), y: CY - radius * Math.cos(a) };
   }
 
-  /** 让 targetIndex 停在指针下所需的新累计角度 */
+  /** 让指针停在 targetIndex 扇区内所需的新累计角度（只正向转） */
   function computeNextRotation(current, targetIndex, n, rand) {
     var slice = 360 / n;
     var offset = (0.2 + rand() * 0.6) * slice; // 避开分界线
-    var targetMod = (360 - (targetIndex * slice + offset)) % 360;
+    var targetMod = targetIndex * slice + offset;
     var delta = ((targetMod - (current % 360)) + 360) % 360;
     return current + 360 * FULL_TURNS + delta;
   }
 
-  /** 由转盘累计角度反算指针指向的扇区 */
+  /** 由指针累计角度反算指向的扇区 */
   function resolveIndex(rotation, n) {
     var slice = 360 / n;
-    var pointed = ((360 - (rotation % 360)) % 360 + 360) % 360;
+    var pointed = ((rotation % 360) + 360) % 360;
     return Math.floor(pointed / slice) % n;
   }
 
@@ -123,22 +123,10 @@
     return el;
   }
 
-  function renderFrame() {
-    frameEl.appendChild(svgEl('circle', { cx: 110, cy: 110, r: 110, fill: '#ffb877' }));
-    frameEl.appendChild(svgEl('circle', { cx: 110, cy: 110, r: 106, fill: 'none', stroke: '#fff', 'stroke-width': 1.5, opacity: 0.7 }));
-    var bulbs = 20;
-    for (var i = 0; i < bulbs; i++) {
-      var p = polar(i * 360 / bulbs, 105, 110, 110);
-      frameEl.appendChild(svgEl('circle', {
-        cx: p.x.toFixed(2), cy: p.y.toFixed(2), r: 2.6, 'class': 'bulb' + (i % 2 ? ' alt' : '')
-      }));
-    }
-  }
-
   function fontSizeFor(n, label) {
-    var base = n <= 6 ? 15 : n <= 8 ? 13 : 11;
+    var base = n <= 6 ? 13 : n <= 8 ? 12 : n <= 10 ? 11 : 10;
     if (label.length > 3) base -= 1;
-    if (label.length > 4) base -= 2;
+    if (label.length > 4) base -= 1.5;
     return base;
   }
 
@@ -156,18 +144,31 @@
         d: 'M ' + CX + ' ' + CY +
            ' L ' + p0.x.toFixed(3) + ' ' + p0.y.toFixed(3) +
            ' A ' + R + ' ' + R + ' 0 ' + (slice > 180 ? 1 : 0) + ' 1 ' + p1.x.toFixed(3) + ' ' + p1.y.toFixed(3) + ' Z',
-        fill: COLORS[i % COLORS.length], stroke: '#fff', 'stroke-width': 1.5, 'data-index': i
+        fill: sliceColor(i, n), stroke: '#fffaf0', 'stroke-width': 1, 'data-index': i
       }));
 
-      // 文字先放在 12 点方向，再绕圆心转到扇区中线，扇区转到顶部时文字正好是正的
+      // 转盘不动，文字横排放在扇区中线上
       var label = list[i];
+      var pos = polar(a0 + slice / 2, R * 0.8);
       var text = svgEl('text', {
-        x: CX, y: CY - R * 0.66, 'text-anchor': 'middle', 'dominant-baseline': 'middle',
-        'font-size': fontSizeFor(n, label), transform: 'rotate(' + (a0 + slice / 2) + ' ' + CX + ' ' + CY + ')'
+        x: pos.x.toFixed(2), y: pos.y.toFixed(2), 'text-anchor': 'middle', 'dominant-baseline': 'central',
+        'font-size': fontSizeFor(n, label), 'data-index': i
       });
       text.textContent = label.length > 6 ? label.slice(0, 5) + '…' : label;
       wheelEl.appendChild(text);
     }
+    wheelEl.appendChild(svgEl('circle', { cx: CX, cy: CY, r: R - 0.8, fill: 'none', stroke: '#e9c793', 'stroke-width': 1.6 }));
+  }
+
+  function highlight(index) {
+    var n = options().length;
+    Array.prototype.forEach.call(wheelEl.querySelectorAll('path'), function (p) {
+      var i = Number(p.getAttribute('data-index'));
+      p.setAttribute('fill', i === index ? WIN_COLOR : sliceColor(i, n));
+    });
+    Array.prototype.forEach.call(wheelEl.querySelectorAll('text'), function (t) {
+      t.classList.toggle('win', Number(t.getAttribute('data-index')) === index);
+    });
   }
 
   function renderTabs() {
@@ -186,13 +187,8 @@
     });
   }
 
-  function setMascot(mode, line) {
-    mascotEl.classList.remove('spinning', 'happy');
-    void mascotEl.offsetWidth;
-    if (mode === 'spinning') { mascotEl.classList.add('spinning'); faceEl.textContent = '😵‍💫'; }
-    else if (mode === 'happy') { mascotEl.classList.add('happy'); faceEl.textContent = '😋'; }
-    else faceEl.textContent = '🤔';
-    bubbleEl.textContent = line || '今天吃什么呢？';
+  function setMascot(mood) {
+    mascotEl.dataset.mood = mood;
   }
 
   function showIdleResult(text) {
@@ -206,8 +202,8 @@
     saveState();
     renderTabs();
     renderWheel();
-    setMascot('idle', category().name + '吃什么呢？');
-    showIdleResult('点下面的按钮开始吧');
+    setMascot('idle');
+    showIdleResult('今天，吃什么好呢');
     lastSpin = null;
     updateDebug();
   }
@@ -259,11 +255,11 @@
     var lastIdx = null;
     (function frame() {
       if (id !== spinId || !isSpinning) return;
-      var m = getComputedStyle(wheelEl).transform;
+      var m = getComputedStyle(pointerEl).transform;
       var match = m && m.match(/matrix\(([^,]+),\s*([^,]+)/);
       if (match) {
         var angle = Math.atan2(parseFloat(match[2]), parseFloat(match[1])) * 180 / Math.PI;
-        var idx = resolveIndex((angle + 360) % 360, n);
+        var idx = resolveIndex(angle, n);
         if (lastIdx !== null && idx !== lastIdx) playTick();
         lastIdx = idx;
       }
@@ -272,8 +268,8 @@
   }
 
   function renderSoundBtn() {
-    soundBtn.textContent = state.sound ? '🔊' : '🔇';
     soundBtn.setAttribute('aria-pressed', String(state.sound));
+    soundBtn.setAttribute('aria-label', state.sound ? '音效：开' : '音效：关');
   }
 
   soundBtn.addEventListener('click', function () {
@@ -290,7 +286,6 @@
     spinBtn.disabled = on;
     spinBtn.textContent = on ? '转动中...' : '转一下';
     editBtn.disabled = on;
-    areaEl.classList.toggle('spinning-wheel', on);
     Array.prototype.forEach.call(tabsEl.children, function (b) { b.disabled = on; });
   }
 
@@ -307,13 +302,14 @@
     var id = ++spinId;
     var finished = false;
 
+    highlight(-1);
     showIdleResult('转呀转...');
-    setMascot('spinning', '转呀转～');
+    setMascot('spin');
 
     function finishSpin() {
       if (finished || id !== spinId) return;
       finished = true;
-      wheelEl.removeEventListener('transitionend', onEnd);
+      pointerEl.removeEventListener('transitionend', onEnd);
       clearTimeout(timer);
 
       currentRotation = nextRotation;
@@ -327,7 +323,8 @@
       resultEl.textContent = '今天，吃' + label + '吧';
       void resultEl.offsetWidth; // 重新触发弹入动画
       resultEl.classList.add('show');
-      setMascot('happy', HAPPY_LINES[Math.floor(Math.random() * HAPPY_LINES.length)]);
+      highlight(targetIndex);
+      setMascot('happy');
       playChime();
       if (navigator.vibrate) { try { navigator.vibrate(40); } catch (e) { /* 忽略 */ } }
 
@@ -340,14 +337,14 @@
     }
 
     function onEnd(e) {
-      if (e.target === wheelEl && e.propertyName === 'transform') finishSpin();
+      if (e.target === pointerEl && e.propertyName === 'transform') finishSpin();
     }
 
-    wheelEl.addEventListener('transitionend', onEnd);
+    pointerEl.addEventListener('transitionend', onEnd);
     var timer = setTimeout(finishSpin, FALLBACK_MS);
 
-    wheelEl.style.transition = 'transform ' + SPIN_MS + 'ms ' + EASING;
-    wheelEl.style.transform = 'rotate(' + nextRotation + 'deg)';
+    pointerEl.style.transition = 'transform ' + SPIN_MS + 'ms ' + EASING;
+    pointerEl.style.transform = 'rotate(' + nextRotation + 'deg)';
     startTickLoop(id, n);
 
     lastSpin = { targetIndex: targetIndex, resolved: null, rotation: nextRotation, label: list[targetIndex] };
@@ -395,7 +392,7 @@
       li.className = 'edit-item';
       var sw = document.createElement('span');
       sw.className = 'swatch';
-      sw.style.background = COLORS[i % COLORS.length];
+      sw.style.background = sliceColor(i, draft.length);
       var input = document.createElement('input');
       input.type = 'text';
       input.maxLength = MAX_LEN;
@@ -461,7 +458,7 @@
     saveState();
     renderWheel();
     lastSpin = null;
-    showIdleResult('选项已更新，转一下吧');
+    showIdleResult('选项更新好啦');
     setMascot('idle');
     updateDebug();
     editSheet.close();
@@ -534,7 +531,6 @@
 
   /* ---------- 启动 ---------- */
 
-  renderFrame();
   renderTabs();
   renderWheel();
   renderSoundBtn();
