@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#fff4e6">
+  <meta name="theme-color" content="#fff6ea">
   <meta name="description" content="选择困难？转一下，决定今天吃什么。">
   <title>今天吃什么</title>
   <link rel="manifest" href="manifest.webmanifest">
@@ -13,15 +13,22 @@
 <body>
   <main class="app">
     <header class="top">
-      <h1 class="title">今天吃什么？</h1>
-      <p class="subtitle">选择困难？交给转盘吧</p>
+      <div class="toolbar">
+        <button id="btn-history" class="icon-btn" type="button" aria-label="抽签记录">🕘</button>
+        <button id="btn-edit" class="icon-btn" type="button" aria-label="编辑选项">✏️</button>
+        <button id="btn-sound" class="icon-btn" type="button" aria-label="音效开关" aria-pressed="false">🔇</button>
+      </div>
+      <div class="mascot-row">
+        <div id="mascot" class="mascot" aria-hidden="true">🍙<span id="mascot-face" class="mascot-face">🤔</span></div>
+        <div id="bubble" class="bubble">今天吃什么呢？</div>
+      </div>
+      <nav id="tabs" class="tabs" role="tablist" aria-label="餐食分类"></nav>
     </header>
 
     <section class="wheel-area" aria-label="转盘">
+      <svg id="frame" class="frame" viewBox="0 0 220 220" aria-hidden="true"></svg>
+      <svg id="wheel" class="wheel" viewBox="0 0 200 200" role="img" aria-label="食物转盘"></svg>
       <div class="pointer" aria-hidden="true"></div>
-      <div class="wheel-frame">
-        <svg id="wheel" class="wheel" viewBox="0 0 200 200" role="img" aria-label="食物转盘"></svg>
-      </div>
       <div class="hub" aria-hidden="true"></div>
     </section>
 
@@ -34,6 +41,38 @@
 
     <pre id="debug" class="debug" hidden></pre>
   </main>
+
+  <!-- 编辑选项 -->
+  <dialog id="edit-sheet" class="sheet" aria-labelledby="edit-title">
+    <div class="sheet-head">
+      <h2 id="edit-title">编辑「<span id="edit-cat"></span>」选项</h2>
+      <button id="edit-cancel" class="text-btn" type="button">取消</button>
+    </div>
+    <p class="sheet-hint">2～12 项，每项最多 8 个字</p>
+    <ul id="edit-list" class="edit-list"></ul>
+    <form id="add-form" class="add-row">
+      <input id="add-input" type="text" maxlength="8" placeholder="新增一项，比如：拉面" autocomplete="off" enterkeyhint="done">
+      <button id="add-btn" class="small-btn" type="submit">添加</button>
+    </form>
+    <p id="edit-error" class="sheet-error" role="alert"></p>
+    <div class="sheet-foot">
+      <button id="edit-reset" class="text-btn" type="button">恢复默认</button>
+      <button id="edit-save" class="primary-btn" type="button">保存</button>
+    </div>
+  </dialog>
+
+  <!-- 抽签记录 -->
+  <dialog id="history-sheet" class="sheet" aria-labelledby="history-title">
+    <div class="sheet-head">
+      <h2 id="history-title">最近 5 次</h2>
+      <button id="history-close" class="text-btn" type="button">关闭</button>
+    </div>
+    <ol id="history-list" class="history-list"></ol>
+    <p id="history-empty" class="sheet-hint">还没有记录，先去转一下吧</p>
+    <div class="sheet-foot">
+      <button id="history-clear" class="text-btn" type="button">清空记录</button>
+    </div>
+  </dialog>
 
   <script src="app.js"></script>
 </body>
