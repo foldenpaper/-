@@ -356,7 +356,8 @@ async function spinOnce(page) {
     await pb.goto(BASE + '?spinms=60');
     await pb.click('#spin'); await pb.waitForFunction(() => !window.__wheel.getState().isSpinning);
     const histBefore = (await pb.evaluate(() => window.__wheel.getState())).history.length;
-    const linkB = link.replace(/^https?:\/\/[^/]+/, new URL(BASE).origin).replace(/\/[^/#]*#/, new URL(BASE).pathname + '?spinms=60#');
+    const code = link.split('#m=')[1];
+    const linkB = new URL(BASE).origin + new URL(BASE).pathname + '?spinms=60#m=' + code;
     await pb.goto(linkB);
     await pb.waitForSelector('#import-sheet[open]');
     const preview = await pb.textContent('#import-list');
@@ -373,7 +374,7 @@ async function spinOnce(page) {
     check(r.visual === r.st.lastSpin.targetIndex && ['喜茶', '一点点', 'Tea🍵'].includes(r.st.lastSpin.label), '导入的转盘可以正常转');
 
     // 取消导入
-    await pb.goto(new URL(BASE).origin + new URL(BASE).pathname + '#m=' + link.split('#m=')[1]);
+    await pb.goto(new URL(BASE).origin + new URL(BASE).pathname + '#m=' + code);
     await pb.waitForSelector('#import-sheet[open]');
     await pb.click('#import-cancel');
     check(await pb.isHidden('#import-sheet'), '可以取消导入');
