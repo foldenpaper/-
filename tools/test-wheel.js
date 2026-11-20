@@ -253,6 +253,148 @@ async function spinOnce(page) {
     await ctx.close();
   }
 
+  // ---------- 6. 自定义转盘 ----------
+  console.log('\n[6] 自定义转盘：新建 / 改名 / 结果文案 / 删除');
+  {
+    const ctx = await browser.newContext({ ...devices['Pixel 7'] });
+    const page = await ctx.newPage();
+    page.on('pageerror', e => errors.push(String(e)));
+    await page.goto(BASE + '?spinms=60');
+    const S = () => page.evaluate(() => window.__wheel.getState());
+
+    await page.click('#tab-add');
+    check(await page.isVisible('#name-input') && (await page.textContent('#edit-title')) === '新建转盘', '点「＋」打开新建转盘面板');
+    await page.click('#edit-save');
+    check((await page.textContent('#edit-error')).includes('起个名字'), '没填名字不能保存');
+    await page.fill('#name-input', '正餐');
+    for (const x of ['公园', '电影院']) { await page.fill('#add-input', x); await page.click('#add-btn'); }
+    await page.click('#edit-save');
+    check((await page.textContent('#edit-error')).includes('已经有叫'), '名字不能和已有转盘重名');
+    await page.fill('#name-input', '周末去哪');
+    await page.fill('#add-input', '海边'); await page.click('#add-btn');
+    await page.click('#edit-save');
+    let st = await S();
+    check(st.wheelName === '周末去哪' && st.options.join() === '公园,电影院,海边' &&
+      (await page.textContent('.tab[aria-selected="true"]')) === '周末去哪', '新建「周末去哪」并自动切换过去');
+
+    let r = await spinOnce(page);
+    check(r.visual === r.st.lastSpin.targetIndex && r.text === '就决定是「' + r.st.options[r.visual] + '」啦',
+      '自定义转盘结果一致，文案为「就决定是…啦」');
+
+    // 编辑：改名，内置转盘的「恢复默认」不出现，删除按钮出现
+    await page.click('#btn-edit');
+    check(await page.isHidden('#edit-reset') && await page.isVisible('#edit-delete') && await page.isVisible('#name-input'),
+      '自定义转盘可改名、可删除、没有「恢复默认」');
+    await page.fill('#name-input', '出去玩');
+    await page.click('#edit-save');
+    st = await S();
+    check(st.wheelName === '出去玩', '改名生效');
+
+    // 内置转盘编辑时不能改名、不能删除
+    await page.click('.tab[data-cat="main"]');
+    await page.click('#btn-edit');
+    check(await page.isHidden('#name-input') && await page.isHidden('#edit-delete') && await page.isVisible('#edit-reset'),
+      '内置转盘不能改名、不能删除');
+    await page.click('#edit-cancel');
+
+    // 刷新后还在
+    await page.reload();
+    check((await page.locator('.tab', { hasText: '出去玩' }).count()) === 1, '刷新后自定义转盘还在');
+
+    // 删除需要点两次
+    await page.click('.tab:has-text("出去玩")');
+    await page.click('#btn-edit');
+    await page.click('#edit-delete');
+    check((await page.textContent('#edit-delete')).includes('再点一次'), '删除要再点一次确认');
+    await page.click('#edit-delete');
+    st = await S();
+    check(st.custom.length === 0 && st.category === 'main' && (await page.locator('.tab', { hasText: '出去玩' }).count()) === 0,
+      '删除后回到「正餐」');
+
+    // 建很多个转盘时，标签栏可以横向滑动，页面不会被撑宽
+    for (let k = 0; k < 6; k++) {
+      await page.click('#tab-add');
+      await page.fill('#name-input', '转盘' + k);
+      for (const x of ['甲', '乙']) { await page.fill('#add-input', x); await page.click('#add-btn'); }
+      await page.click('#edit-save');
+    }
+    const lay = await page.evaluate(() => ({
+      pageW: document.documentElement.scrollWidth, vw: innerWidth,
+      tabsScroll: document.getElementById('tabs').scrollWidth > document.getElementById('tabs').clientWidth,
+      selVisible: (() => { const t = document.querySelector('.tab[aria-selected="true"]').getBoundingClientRect(); return t.left >= 0 && t.right <= innerWidth; })()
+    }));
+    check(lay.pageW <= lay.vw && lay.tabsScroll && lay.selVisible, '转盘多时标签栏可横向滑动，选中的标签自动滚到可见处');
+    if (process.env.SHOT_DIR) await page.screenshot({ path: `${process.env.SHOT_DIR}/shot-custom.png` });
+    await ctx.close();
+  }
+
+  // ---------- 7. 分享菜单链接 ----------
+  console.log('\n[7] 分享菜单链接：生成 → 另一台手机打开 → 导入');
+  {
+    const a = await browser.newContext({ ...devices['Pixel 7'] });
+    const pa = await a.newPage();
+    pa.on('pageerror', e => errors.push(String(e)));
+    await pa.goto(BASE + '?spinms=60');
+    // A 改一下正餐，并新建一个自定义转盘
+    await pa.click('#btn-edit');
+    await pa.fill('#edit-list li:nth-child(1) input', '寿喜烧');
+    await pa.click('#edit-save');
+    await pa.click('#tab-add');
+    await pa.fill('#name-input', '奶茶店');
+    for (const x of ['喜茶', '一点点', 'Tea🍵']) { await pa.fill('#add-input', x); await pa.click('#add-btn'); }
+    await pa.click('#edit-save');
+    await pa.click('#btn-share');
+    const link = await pa.inputValue('#share-link');
+    const summary = await pa.textContent('#share-summary');
+    check(link.includes('#m=') && summary.includes('5 个转盘') && summary.includes('奶茶店'), `生成分享链接（长度 ${link.length}）`);
+    const aState = await pa.evaluate(() => JSON.parse(localStorage.getItem('what-to-eat:v1')));
+
+    // B：另一台手机，原本是默认菜单
+    const b = await browser.newContext({ ...devices['Pixel 7'] });
+    const pb = await b.newPage();
+    pb.on('pageerror', e => errors.push(String(e)));
+    await pb.goto(BASE + '?spinms=60');
+    await pb.click('#spin'); await pb.waitForFunction(() => !window.__wheel.getState().isSpinning);
+    const histBefore = (await pb.evaluate(() => window.__wheel.getState())).history.length;
+    const linkB = link.replace(/^https?:\/\/[^/]+/, new URL(BASE).origin).replace(/\/[^/#]*#/, new URL(BASE).pathname + '?spinms=60#');
+    await pb.goto(linkB);
+    await pb.waitForSelector('#import-sheet[open]');
+    const preview = await pb.textContent('#import-list');
+    check(preview.includes('寿喜烧') && preview.includes('奶茶店') && preview.includes('Tea🍵'), '打开链接后弹出导入确认，列出全部转盘（含 emoji）');
+    await pb.click('#import-ok');
+    const bState = await pb.evaluate(() => JSON.parse(localStorage.getItem('what-to-eat:v1')));
+    const same = JSON.stringify(aState.lists) === JSON.stringify(bState.lists) &&
+      JSON.stringify(aState.custom.map(c => [c.name, c.items])) === JSON.stringify(bState.custom.map(c => [c.name, c.items]));
+    check(same, '导入后两台手机的全部转盘完全一样');
+    check(bState.history.length === histBefore, '导入不影响对方的抽签记录');
+    check(!(await pb.evaluate(() => location.hash)), '导入后网址里的分享码被清掉（刷新不会重复弹窗）');
+    await pb.click('.tab:has-text("奶茶店")');
+    const r = await spinOnce(pb);
+    check(r.visual === r.st.lastSpin.targetIndex && ['喜茶', '一点点', 'Tea🍵'].includes(r.st.lastSpin.label), '导入的转盘可以正常转');
+
+    // 取消导入
+    await pb.goto(new URL(BASE).origin + new URL(BASE).pathname + '#m=' + link.split('#m=')[1]);
+    await pb.waitForSelector('#import-sheet[open]');
+    await pb.click('#import-cancel');
+    check(await pb.isHidden('#import-sheet'), '可以取消导入');
+
+    // 坏链接
+    await pb.goto(new URL(BASE).origin + new URL(BASE).pathname + '#m=abc!!!');
+    await pb.waitForSelector('#toast:not([hidden])');
+    check((await pb.textContent('#toast')).includes('不完整') && await pb.isHidden('#import-sheet'), '链接损坏时提示，不会弄坏现有菜单');
+    const bAfter = await pb.evaluate(() => JSON.parse(localStorage.getItem('what-to-eat:v1')));
+    check(JSON.stringify(bAfter.custom.map(c => c.name)) === JSON.stringify(['奶茶店']), '坏链接没有改动菜单');
+
+    // 复制按钮
+    await a.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(BASE).origin });
+    await pa.click('#share-copy');
+    await pa.waitForSelector('#toast:not([hidden])');
+    const clip = await pa.evaluate(() => navigator.clipboard.readText());
+    check(clip === link, '「复制链接」把链接复制到剪贴板');
+    if (process.env.SHOT_DIR) await pa.screenshot({ path: `${process.env.SHOT_DIR}/shot-share.png` });
+    await a.close(); await b.close();
+  }
+
   check(errors.length === 0, `页面无报错${errors.length ? '：' + errors.join(' | ') : ''}`);
   await browser.close();
   console.log(failures ? `\n共 ${failures} 项未通过` : '\n全部通过 ✅');

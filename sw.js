@@ -1,6 +1,6 @@
 /* 轻量 Service Worker：缓存静态资源，支持离线打开。
  * 每次发布新版本时，把 CACHE_VERSION 加 1（如 v1 → v2），旧缓存会在激活时自动清理。 */
-var CACHE_VERSION = 'v3';
+var CACHE_VERSION = 'v4';
 var CACHE_NAME = 'what-to-eat-' + CACHE_VERSION;
 var ASSETS = [
   './',
@@ -10,7 +10,10 @@ var ASSETS = [
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
-  './icons/icon-maskable-512.png'
+  './icons/icon-maskable-512.png',
+  './assets/mascot-idle.png',
+  './assets/mascot-spin.png',
+  './assets/mascot-happy.png'
 ];
 
 self.addEventListener('install', function (event) {

@@ -8,6 +8,8 @@
   <title>今天吃什么</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="preload" as="image" href="assets/mascot-spin.png">
+  <link rel="preload" as="image" href="assets/mascot-happy.png">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -16,68 +18,46 @@
       <div class="title-row">
         <h1 class="title">今天吃什么</h1>
         <div class="toolbar">
+          <button id="btn-share" class="icon-btn" type="button" aria-label="分享菜单">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="17.5" cy="6" r="2.5"/><circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/><path d="M8.7 10.8l6.6-3.6M8.7 13.2l6.6 3.6"/></svg>
+          </button>
           <button id="btn-history" class="icon-btn" type="button" aria-label="抽签记录">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
           </button>
-          <button id="btn-sound" class="icon-btn" type="button" aria-label="音效开关" aria-pressed="false">
+          <button id="btn-sound" class="icon-btn" type="button" aria-label="音效：关" aria-pressed="false">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 9.5h3l4-3.5v12l-4-3.5h-3z"/><path class="sound-on" d="M15 9a4 4 0 0 1 0 6M17.5 6.5a7.5 7.5 0 0 1 0 11"/><path class="sound-off" d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></svg>
           </button>
         </div>
       </div>
       <div class="tabs-row">
-        <nav id="tabs" class="tabs" role="tablist" aria-label="餐食分类"></nav>
-        <button id="btn-edit" class="icon-btn edit-btn" type="button" aria-label="编辑选项">
+        <nav id="tabs" class="tabs" role="tablist" aria-label="转盘"></nav>
+        <button id="tab-add" class="icon-btn edit-btn new-btn" type="button" aria-label="新建转盘">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+        <button id="btn-edit" class="icon-btn edit-btn" type="button" aria-label="编辑当前转盘">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l1-4L15.5 5.5a2.1 2.1 0 0 1 3 3L9 18z"/><path d="M14 7l3 3"/></svg>
         </button>
       </div>
     </header>
 
     <section id="wheel-area" class="wheel-area" aria-label="转盘">
-      <svg id="wheel" class="wheel" viewBox="0 0 200 200" role="img" aria-label="食物转盘"></svg>
+      <svg id="wheel" class="wheel" viewBox="0 0 200 200" role="img" aria-label="转盘"></svg>
 
-      <!-- 旋转的勺子指针：画在与转盘同尺寸的图层里，绕中心转动 -->
+      <!-- 旋转的勺子指针：与转盘同尺寸的图层，绕中心转动；外层圆形裁剪，避免转到斜角时撑宽页面 -->
       <div class="pointer-clip" aria-hidden="true"><div id="pointer" class="pointer">
         <svg viewBox="0 0 200 200">
-          <rect x="96.8" y="54" width="6.4" height="48" rx="3.2" fill="#e3ad6d" stroke="#b9803f" stroke-width="1.5"/>
-          <ellipse cx="100" cy="46" rx="8.5" ry="11.5" fill="#f1c48a" stroke="#b9803f" stroke-width="1.5"/>
-          <ellipse cx="97.5" cy="42.5" rx="2.6" ry="5" fill="#fff3dc" opacity="0.8"/>
-          <circle id="pointer-tip" cx="100" cy="36" r="0.5" fill="none"/>
+          <rect x="97" y="48" width="6" height="52" rx="3" fill="#e3ad6d" stroke="#7a4a24" stroke-width="1.6"/>
+          <ellipse cx="100" cy="42" rx="7.5" ry="9.5" fill="#efc188" stroke="#7a4a24" stroke-width="1.6"/>
+          <ellipse cx="97.8" cy="39" rx="2.2" ry="4" fill="#fff3dc" opacity="0.85"/>
+          <circle id="pointer-tip" cx="100" cy="34" r="0.5" fill="none"/>
         </svg>
       </div></div>
 
-      <!-- 原创吉祥物：小包子 -->
-      <div id="mascot" class="mascot" aria-hidden="true">
-        <svg viewBox="0 0 100 100">
-          <ellipse cx="50" cy="90" rx="26" ry="4" fill="#d9b98c" opacity="0.35"/>
-          <ellipse cx="17" cy="66" rx="7" ry="6" fill="#fffaf1" stroke="#e7cba3" stroke-width="2"/>
-          <ellipse cx="83" cy="66" rx="7" ry="6" fill="#fffaf1" stroke="#e7cba3" stroke-width="2"/>
-          <path d="M14 70 C14 42 32 24 50 24 C68 24 86 42 86 70 C86 83 70 88 50 88 C30 88 14 83 14 70 Z" fill="#fffaf1" stroke="#e7cba3" stroke-width="2.2"/>
-          <g fill="none" stroke="#e2c193" stroke-width="2" stroke-linecap="round">
-            <path d="M50 27 Q42 33 36 32"/>
-            <path d="M50 27 Q58 33 64 32"/>
-            <path d="M50 27 Q46 34 44 38"/>
-            <path d="M50 27 Q54 34 56 38"/>
-          </g>
-          <circle cx="50" cy="25" r="3" fill="#f3dcb8"/>
-          <ellipse cx="31" cy="65" rx="6" ry="3.6" fill="#ffb9ae" opacity="0.75"/>
-          <ellipse cx="69" cy="65" rx="6" ry="3.6" fill="#ffb9ae" opacity="0.75"/>
-          <g class="face face-idle">
-            <circle cx="39" cy="56" r="3.8" fill="#4a2e1c"/><circle cx="40.3" cy="54.7" r="1.2" fill="#fff"/>
-            <circle cx="61" cy="56" r="3.8" fill="#4a2e1c"/><circle cx="62.3" cy="54.7" r="1.2" fill="#fff"/>
-            <path d="M45.5 63 Q50 67.5 54.5 63" fill="none" stroke="#4a2e1c" stroke-width="2" stroke-linecap="round"/>
-          </g>
-          <g class="face face-spin" fill="none" stroke="#4a2e1c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M35 52.5 L41 56 L35 59.5"/>
-            <path d="M65 52.5 L59 56 L65 59.5"/>
-            <ellipse cx="50" cy="65" rx="2.6" ry="3" fill="#4a2e1c" stroke="none"/>
-          </g>
-          <g class="face face-happy">
-            <path d="M34.5 57 Q39 51 43.5 57" fill="none" stroke="#4a2e1c" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M56.5 57 Q61 51 65.5 57" fill="none" stroke="#4a2e1c" stroke-width="2.4" stroke-linecap="round"/>
-            <path d="M44 61.5 Q50 61.5 56 61.5 Q55 70 50 70 Q45 70 44 61.5 Z" fill="#c95b4b"/>
-            <path d="M46.5 67 Q50 65 53.5 67 Q52 70 50 70 Q48 70 46.5 67 Z" fill="#ff9c8e"/>
-          </g>
-        </svg>
+      <!-- 吉祥物：包子小厨师（等待 / 转动 / 抽中 三种姿态） -->
+      <div id="mascot" class="mascot" data-mood="idle" aria-hidden="true">
+        <img class="face face-idle" src="assets/mascot-idle.png" alt="">
+        <img class="face face-spin" src="assets/mascot-spin.png" alt="">
+        <img class="face face-happy" src="assets/mascot-happy.png" alt="">
       </div>
     </section>
 
@@ -91,21 +71,26 @@
     <pre id="debug" class="debug" hidden></pre>
   </main>
 
-  <!-- 编辑选项 -->
+  <!-- 编辑 / 新建转盘 -->
   <dialog id="edit-sheet" class="sheet" aria-labelledby="edit-title">
     <div class="sheet-head">
-      <h2 id="edit-title">编辑「<span id="edit-cat"></span>」选项</h2>
+      <h2 id="edit-title">编辑转盘</h2>
       <button id="edit-cancel" class="text-btn" type="button">取消</button>
     </div>
-    <p class="sheet-hint">2～12 项，每项最多 8 个字</p>
+    <label id="name-row" class="name-row">
+      <span>转盘名字</span>
+      <input id="name-input" type="text" maxlength="6" placeholder="比如：周末去哪" autocomplete="off">
+    </label>
+    <p class="sheet-hint">选项 2～12 项，每项最多 8 个字</p>
     <ul id="edit-list" class="edit-list"></ul>
     <form id="add-form" class="add-row">
-      <input id="add-input" type="text" maxlength="8" placeholder="新增一项，比如：拉面" autocomplete="off" enterkeyhint="done">
+      <input id="add-input" type="text" maxlength="8" placeholder="新增一项" autocomplete="off" enterkeyhint="done">
       <button id="add-btn" class="small-btn" type="submit">添加</button>
     </form>
     <p id="edit-error" class="sheet-error" role="alert"></p>
     <div class="sheet-foot">
       <button id="edit-reset" class="text-btn" type="button">恢复默认</button>
+      <button id="edit-delete" class="text-btn danger" type="button">删除这个转盘</button>
       <button id="edit-save" class="primary-btn" type="button">保存</button>
     </div>
   </dialog>
@@ -122,6 +107,36 @@
       <button id="history-clear" class="text-btn" type="button">清空记录</button>
     </div>
   </dialog>
+
+  <!-- 分享菜单 -->
+  <dialog id="share-sheet" class="sheet" aria-labelledby="share-title">
+    <div class="sheet-head">
+      <h2 id="share-title">分享我的菜单</h2>
+      <button id="share-close" class="text-btn" type="button">关闭</button>
+    </div>
+    <p class="sheet-hint">把链接发给朋友，对方打开后点「导入」，就会得到和你一模一样的全部转盘。之后你再修改，需要重新分享一次。</p>
+    <p id="share-summary" class="share-summary"></p>
+    <input id="share-link" class="share-link" type="text" readonly aria-label="分享链接">
+    <div class="sheet-foot">
+      <button id="share-copy" class="small-btn" type="button">复制链接</button>
+      <button id="share-native" class="primary-btn" type="button" hidden>发送给…</button>
+    </div>
+  </dialog>
+
+  <!-- 导入确认 -->
+  <dialog id="import-sheet" class="sheet" aria-labelledby="import-title">
+    <div class="sheet-head">
+      <h2 id="import-title">收到一份菜单</h2>
+    </div>
+    <p class="sheet-hint">导入后，你现在的全部转盘会被替换成下面这些（抽签记录不受影响）：</p>
+    <ul id="import-list" class="import-list"></ul>
+    <div class="sheet-foot">
+      <button id="import-cancel" class="text-btn" type="button">不用了</button>
+      <button id="import-ok" class="primary-btn" type="button">导入</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="app.js"></script>
 </body>
