@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff4e6">
+  <meta name="description" content="选择困难？转一下，决定今天吃什么。">
+  <title>今天吃什么</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1 class="title">今天吃什么？</h1>
+      <p class="subtitle">选择困难？交给转盘吧</p>
+    </header>
+
+    <section class="wheel-area" aria-label="转盘">
+      <div class="pointer" aria-hidden="true"></div>
+      <div class="wheel-frame">
+        <svg id="wheel" class="wheel" viewBox="0 0 200 200" role="img" aria-label="食物转盘"></svg>
+      </div>
+      <div class="hub" aria-hidden="true"></div>
+    </section>
+
+    <p id="result" class="result" aria-live="polite">点下面的按钮开始吧</p>
+
+    <div class="actions">
+      <button id="spin" class="spin-btn" type="button">转一下</button>
+      <button id="install" class="install-btn" type="button" hidden>安装到桌面</button>
+    </div>
+
+    <pre id="debug" class="debug" hidden></pre>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
